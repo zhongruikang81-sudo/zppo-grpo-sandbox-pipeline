@@ -1,6 +1,6 @@
 # ZPPO & GRPO Mathematical Reinforcement Learning Pipeline
 
-This repository consolidates the entire code, scripts, configurations, and datasets for training and benchmarking **GRPO** and **ZPPO** (Zero-shot Preference Policy Optimization) algorithms. It evaluates language models on high-school level mathematical word problems utilizing a local **Python Sandbox** for execution-guided learning.
+This repository consolidates the entire code, scripts, configurations, and datasets for training and benchmarking **GRPO** and **ZPPO** (Zone of Proximal Policy Optimization) algorithms. It evaluates language models on high-school level mathematical word problems utilizing a local **Python Sandbox** for execution-guided learning.
 
 ---
 

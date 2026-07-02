@@ -1,6 +1,6 @@
 # ZPPO 强化对齐与大模型工具交互：SFT vs GRPO vs ZPPO 全维度终极研究报告
 
-> **项目名称**：基于 ZPPO (Zero-shot Preference Policy Optimization) 框架的大模型数学沙箱自愈与对齐优化  
+> **项目名称**：基于 ZPPO (Zone of Proximal Policy Optimization) 框架的大模型数学沙箱自愈与对齐优化  
 > **评测基座**：Gemma-2-2B-SFT  
 > **评测环境**：本地物理沙箱（支持多轮 Python 代码执行、Traceback 反馈捕获及 大模型辅助过程评分与步骤奖励挽救）  
 
