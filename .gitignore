@@ -1,0 +1,51 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE / Editor configurations
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Sandbox temporary files
+temp_*.py
+temp_*.txt
+*.tmp
+
+# Local logs and output checkpoints (if you want to keep weights offline)
+# Un-comment the line below if you do NOT want to push the 210MB LoRA weights to GitHub:
+# weights/
+
+# OS specific files
+.DS_Store
+Thumbs.db
