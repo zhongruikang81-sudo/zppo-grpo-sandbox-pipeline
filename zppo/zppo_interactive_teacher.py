@@ -5,20 +5,35 @@ import json
 import openai
 from typing import List, Dict, Tuple
 
-# Add current directory to path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from sandbox import execute_accumulated_code
+# Resolve repo root from this file's location so core/ is importable
+# regardless of the current working directory.
+from pathlib import Path
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from core.sandbox import execute_accumulated_code
 
 # DeepSeek Configuration
-API_KEY = "***REMOVED***"
+# The API key is read from the DEEPSEEK_API_KEY environment variable; never
+# hardcode credentials in source code.
+API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 BASE_URL = "https://api.deepseek.com"
-TEACHER_MODEL = "deepseek-v4-pro"
+# Teacher model: read from DEEPSEEK_JUDGE_MODEL, default "deepseek-chat".
+# NOTE: the original hardcoded "deepseek-v4-pro" is NOT a valid DeepSeek model
+# name; teacher rollouts require a valid model name.
+TEACHER_MODEL = os.environ.get("DEEPSEEK_JUDGE_MODEL", "deepseek-chat")
 
 def get_teacher_trajectory(question: str, target_answer: str, max_turns: int = 3) -> Tuple[bool, List[Dict[str, str]], str]:
     """
     Interacts with the DeepSeek API teacher and the local sandbox for up to max_turns.
     Returns (success, trajectory_messages, final_response)
     """
+    if not API_KEY:
+        raise RuntimeError(
+            "DEEPSEEK_API_KEY environment variable is not set. "
+            "Teacher rollouts require a valid DeepSeek API key; "
+            "set DEEPSEEK_API_KEY before running."
+        )
     client = openai.OpenAI(api_key=API_KEY, base_url=BASE_URL)
     
     prompt = (

@@ -14,8 +14,14 @@ if hasattr(sys.stdout, 'reconfigure'):
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-# Add math workspace to path for imports
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Resolve repo root from this file's location; add both the repo root (for
+# core/ imports) and this script's directory (for train_grpo_interactive_v2).
+from pathlib import Path
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SCRIPT_DIR = Path(__file__).resolve().parent
+for _p in (str(REPO_ROOT), str(SCRIPT_DIR)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 from train_grpo_interactive_v2 import get_inputs_and_labels
 
 def parse_comp_to_history(prompt, comp_text):
@@ -85,7 +91,8 @@ def run_replay(start_replay_step, end_replay_step, latest_ckpt_path, output_dir,
     print(f"Base Checkpoint: {latest_ckpt_path}")
     print(f"=========================================\n")
     
-    model_id = "E:\\math workspace\\sft_merged"
+    # NOTE: sft_merged (~5GB) is not distributed with this repo; set SFT_BASE_MODEL.
+    model_id = os.environ.get("SFT_BASE_MODEL", str(REPO_ROOT / "sft_merged"))
     
     print("Loading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
@@ -272,7 +279,7 @@ def run_replay(start_replay_step, end_replay_step, latest_ckpt_path, output_dir,
     print(f"\nReplay recovery finished successfully! Saved updated weights to: {ckpt_dir}")
 
 def main():
-    output_dir = r"E:\math workspace\grpo_output_discounted"
+    output_dir = str(REPO_ROOT / "grpo_output_discounted")
     log_path = os.path.join(output_dir, "training_log_v2.txt")
     
     latest_ckpt_step, latest_ckpt_path = get_latest_checkpoint(output_dir)

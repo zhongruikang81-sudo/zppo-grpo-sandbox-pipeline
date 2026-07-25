@@ -1,207 +1,77 @@
 ---
-base_model: E:\math workspace\sft_merged
+base_model: sft_merged (local, not distributed)
 library_name: peft
 pipeline_tag: text-generation
 tags:
-- base_model:adapter:E:\math workspace\sft_merged
 - lora
 - transformers
+- zppo
+- reinforcement-learning
+- math-reasoning
+- code-sandbox
+license: mit
 ---
 
-# Model Card for Model ID
+# Model Card — ZPPO Checkpoint 600 (Sweet Spot)
 
-<!-- Provide a quick summary of what the model is/does. -->
+## Model Description
 
+LoRA adapter trained with **ZPPO (Zone of Proximal Policy Optimization)**, step 600 —
+the best-performing checkpoint in this project. ZPPO extends GRPO with a
+BCQ-style reflection curriculum, a prompt replay buffer with graduation, an
+in-context teacher (higher reward frequency on hard problems), and
+**Zero-Advantage Skip** (skips backward when all G rollouts tie).
 
-
-## Model Details
-
-### Model Description
-
-<!-- Provide a longer summary of what this model is. -->
-
-
-
-- **Developed by:** [More Information Needed]
-- **Funded by [optional]:** [More Information Needed]
-- **Shared by [optional]:** [More Information Needed]
-- **Model type:** [More Information Needed]
-- **Language(s) (NLP):** [More Information Needed]
-- **License:** [More Information Needed]
-- **Finetuned from model [optional]:** [More Information Needed]
-
-### Model Sources [optional]
-
-<!-- Provide the basic links for the model. -->
-
-- **Repository:** [More Information Needed]
-- **Paper [optional]:** [More Information Needed]
-- **Demo [optional]:** [More Information Needed]
-
-## Uses
-
-<!-- Address questions around how the model is intended to be used, including the foreseeable users of the model and those affected by the model. -->
-
-### Direct Use
-
-<!-- This section is for the model use without fine-tuning or plugging into a larger ecosystem/app. -->
-
-[More Information Needed]
-
-### Downstream Use [optional]
-
-<!-- This section is for the model use when fine-tuned for a task, or when plugged into a larger ecosystem/app -->
-
-[More Information Needed]
-
-### Out-of-Scope Use
-
-<!-- This section addresses misuse, malicious use, and uses that the model will not work well for. -->
-
-[More Information Needed]
-
-## Bias, Risks, and Limitations
-
-<!-- This section is meant to convey both technical and sociotechnical limitations. -->
-
-[More Information Needed]
-
-### Recommendations
-
-<!-- This section is meant to convey recommendations with respect to the bias, risk, and technical limitations. -->
-
-Users (both direct and downstream) should be made aware of the risks, biases and limitations of the model. More information needed for further recommendations.
-
-## How to Get Started with the Model
-
-Use the code below to get started with the model.
-
-[More Information Needed]
+- **Developed by:** Ruikang Zhong
+- **Model type:** LoRA adapter (PEFT) for causal LM
+- **Base model:** `sft_merged` — Gemma-2-2B-it + SFT (merged). **Not distributed**; point `SFT_BASE_MODEL` to your local copy
+- **LoRA config:** r=8, alpha=16, dropout=0.05, targets `q/k/v/o/gate/up/down_proj`
+- **Language(s):** English (math word problems)
+- **License:** MIT
 
 ## Training Details
 
-### Training Data
+- **Data:** `data/numina_gsm_mix_numeric.jsonl` + `data/hendrycks_math_grpo_numeric.jsonl` (see repository README *Known Issues*: 0% exact duplicates, 2.6% near-duplicates).
+- **Algorithm:** ZPPO over the GRPO-trained adapter lineage; G=4 group-relative advantage, execution-guided multi-objective reward (see repo README § Reward Calculation Rules), replay buffer state in `zppo_prb_state.json`.
+- **Reported as:** "ZPPO-600 (中期)" in the technical reports.
 
-<!-- This should link to a Dataset Card, perhaps with a short stub of information on what the training data is all about as well as documentation related to data pre-processing or additional filtering. -->
+## Evaluation Results
 
-[More Information Needed]
+| Benchmark | This checkpoint | SFT | GRPO-1800 | ZPPO-960 |
+|---|---|---|---|---|
+| NuminaMath 500 (accuracy) | **32.60%** (163/500) 🏆 | 29.40% | 29.20% | 32.60% |
+| Hard Math 214, geometry-free (accuracy) | **17.29%** (37/214) 🏆 | 13.08% | 12.15% | 14.95% |
 
-### Training Procedure
+Behavioral effects (see `docs/zppo_alignment_comprehensive_final_report.md`):
 
-<!-- This relates heavily to the Technical Specifications. Content here should link to that section when it is relevant to the training procedure. -->
+- Code-generation rate pushed from 28% (SFT) to **70%+** on the mixed set, and
+  anchored at **~50%** on the hard subset where SFT/GRPO collapse to 10–14%.
+- Reflection training transfers to pure-text reasoning: non-coding accuracy
+  17.43% vs SFT 13.04% / GRPO 11.46%.
+- Debug-salvage rate after first-turn errors: 15.22% (collapses to 4.35% at step 960).
 
-#### Preprocessing [optional]
+## Intended Use
 
-[More Information Needed]
+Research checkpoint demonstrating execution-guided preference curricula for
+small models. **Not** intended for production math solving or general chat.
 
+## Limitations
 
-#### Training Hyperparameters
+- 500-question evaluation set contains 2 near-exact duplicates (≥0.99 similarity) of training-segment questions, plus 16 template variants at ≥0.90 (disclosed in repo README *Known Issues*).
+- Trained on English numeric-answer math problems only; geometry (`[asy]`) items are explicitly out of scope and filtered at evaluation.
+- Requires the `<STEP>`/sandbox protocol for full behavior.
 
-- **Training regime:** [More Information Needed] <!--fp32, fp16 mixed precision, bf16 mixed precision, bf16 non-mixed precision, fp16 non-mixed precision, fp8 mixed precision -->
+## Usage
 
-#### Speeds, Sizes, Times [optional]
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
 
-<!-- This section provides information about throughput, start/end time, checkpoint size if relevant, etc. -->
+base = AutoModelForCausalLM.from_pretrained("<path-to>/sft_merged", device_map="auto")
+model = PeftModel.from_pretrained(base, "weights/zppo_checkpoint_600")
+tok = AutoTokenizer.from_pretrained("weights/zppo_checkpoint_600")
+```
 
-[More Information Needed]
-
-## Evaluation
-
-<!-- This section describes the evaluation protocols and provides the results. -->
-
-### Testing Data, Factors & Metrics
-
-#### Testing Data
-
-<!-- This should link to a Dataset Card if possible. -->
-
-[More Information Needed]
-
-#### Factors
-
-<!-- These are the things the evaluation is disaggregating by, e.g., subpopulations or domains. -->
-
-[More Information Needed]
-
-#### Metrics
-
-<!-- These are the evaluation metrics being used, ideally with a description of why. -->
-
-[More Information Needed]
-
-### Results
-
-[More Information Needed]
-
-#### Summary
-
-
-
-## Model Examination [optional]
-
-<!-- Relevant interpretability work for the model goes here -->
-
-[More Information Needed]
-
-## Environmental Impact
-
-<!-- Total emissions (in grams of CO2eq) and additional considerations, such as electricity usage, go here. Edit the suggested text below accordingly -->
-
-Carbon emissions can be estimated using the [Machine Learning Impact calculator](https://mlco2.github.io/impact#compute) presented in [Lacoste et al. (2019)](https://arxiv.org/abs/1910.09700).
-
-- **Hardware Type:** [More Information Needed]
-- **Hours used:** [More Information Needed]
-- **Cloud Provider:** [More Information Needed]
-- **Compute Region:** [More Information Needed]
-- **Carbon Emitted:** [More Information Needed]
-
-## Technical Specifications [optional]
-
-### Model Architecture and Objective
-
-[More Information Needed]
-
-### Compute Infrastructure
-
-[More Information Needed]
-
-#### Hardware
-
-[More Information Needed]
-
-#### Software
-
-[More Information Needed]
-
-## Citation [optional]
-
-<!-- If there is a paper or blog post introducing the model, the APA and Bibtex information for that should go in this section. -->
-
-**BibTeX:**
-
-[More Information Needed]
-
-**APA:**
-
-[More Information Needed]
-
-## Glossary [optional]
-
-<!-- If relevant, include terms and calculations in this section that can help readers understand the model or model card. -->
-
-[More Information Needed]
-
-## More Information [optional]
-
-[More Information Needed]
-
-## Model Card Authors [optional]
-
-[More Information Needed]
-
-## Model Card Contact
-
-[More Information Needed]
 ### Framework versions
 
 - PEFT 0.19.1

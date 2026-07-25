@@ -25,18 +25,27 @@ os.environ["HF_ENDPOINT"]           = "https://hf-mirror.com"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
-sys.path.append(r"E:\math workspace")
-from sandbox       import execute_accumulated_code
-from evaluator_v2  import compare_math_answers, get_prm_salvage_score
+# Resolve repo root from this file's location so core/ is importable
+# regardless of the current working directory.
+from pathlib import Path
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from core.sandbox    import execute_accumulated_code
+from core.evaluator  import compare_math_answers, get_prm_salvage_score
 
 # ── Paths ────────────────────────────────────────────────────────────────────
-BASE_MODEL   = r"E:\math workspace\sft_merged"
-GRPO_ADAPTER = r"E:\math workspace\grpo_output_discounted\checkpoint_step1800_v3"
-ZPPO_600_DIR = r"E:\math workspace\grpo_output_discounted\zppo_checkpoint\checkpoint_step600"
-ZPPO_960_DIR = r"E:\math workspace\grpo_output_discounted\zppo_checkpoint\checkpoint_step960"
+# NOTE: the merged SFT base model (sft_merged, ~5GB) is NOT distributed with
+# this repository. Point SFT_BASE_MODEL at your local merged model directory.
+BASE_MODEL   = os.environ.get("SFT_BASE_MODEL", str(REPO_ROOT / "sft_merged"))
+GRPO_ADAPTER = str(REPO_ROOT / "weights" / "grpo_checkpoint")
+ZPPO_600_DIR = str(REPO_ROOT / "weights" / "zppo_checkpoint_600")
+ZPPO_960_DIR = str(REPO_ROOT / "weights" / "zppo_checkpoint_960")
 
-SCRATCH = r"C:\Users\rick john\.gemini\antigravity\brain\8ceedcb6-148d-478c-b186-c0bb494fe889\scratch"
-TEST_SET = os.path.join(SCRATCH, "hard_math_250_test.json")
+RESULTS_DIR = REPO_ROOT / "results"
+os.makedirs(RESULTS_DIR, exist_ok=True)
+TEST_SET = str(REPO_ROOT / "data" / "hard_math_250_test.json")
 
 MAX_TURNS      = 6
 MAX_NEW_TOKENS = 1024
@@ -284,8 +293,8 @@ def make_final_report(sft, grpo, z600, z960):
     def pct(a, b): return f"{a/b*100:.2f}%" if b else "N/A"
 
     lines = []
-    lines.append("# SFT vs GRPO-1800 vs ZPPO-600 vs ZPPO-960 | Hard Math Subset (Geometry-Free, 215题) 终极对比报告\n")
-    lines.append(f"> 测试集：MATH (Level 3 & 4) 250题切片剔除 35 道几何题，保留 215 道纯计算题平衡集 | 答案限制：Numeric | 解码：贪婪\n")
+    lines.append("# SFT vs GRPO-1800 vs ZPPO-600 vs ZPPO-960 | Hard Math Subset (Geometry-Free, 214题) 终极对比报告\n")
+    lines.append(f"> 测试集：MATH (Level 3 & 4) 250题切片剔除 36 道几何题，保留 214 道纯计算题平衡集 | 答案限制：Numeric | 解码：贪婪\n")
     lines.append("## 一、 核心对齐指标\n")
 
     lines.append("| 指标 | SFT Baseline | GRPO-1800 | ZPPO-600 (中期) | ZPPO-960 (后期) | 性能变化 (960 vs 600) |")
@@ -340,16 +349,13 @@ def make_final_report(sft, grpo, z600, z960):
             f"| {pct(z9c['correct'], z9c['total'])} ({z9c['correct']}/{z9c['total']}) |"
         )
 
-    report_out = os.path.join(SCRATCH, "hard_math_benchmark_report.md")
-    user_facing_out = r"C:\Users\rick john\.gemini\antigravity\brain\8ceedcb6-148d-478c-b186-c0bb494fe889\hard_math_benchmark_report.md"
+    report_out = str(RESULTS_DIR / "hard_math_benchmark_report.md")
     
     report_text = "\n".join(lines)
     with open(report_out, "w", encoding="utf-8") as f:
         f.write(report_text)
-    with open(user_facing_out, "w", encoding="utf-8") as f:
-        f.write(report_text)
         
-    print(f"Report compiled successfully at: {user_facing_out}")
+    print(f"Report compiled successfully at: {report_out}")
 
 def main():
     with open(TEST_SET, "r", encoding="utf-8") as f:
@@ -375,7 +381,7 @@ def main():
         )
 
     # 1. Evaluate SFT
-    sft_out = os.path.join(SCRATCH, "bench250_hard_sft.json")
+    sft_out = str(RESULTS_DIR / "bench250_hard_sft.json")
     if not os.path.exists(sft_out) or len(json.load(open(sft_out, encoding="utf-8"))) < len(questions):
         tok = load_tokenizer()
         model = load_base()
@@ -385,7 +391,7 @@ def main():
         torch.cuda.empty_cache()
 
     # 2. Evaluate GRPO-1800
-    grpo_out = os.path.join(SCRATCH, "bench250_hard_grpo1800.json")
+    grpo_out = str(RESULTS_DIR / "bench250_hard_grpo1800.json")
     if not os.path.exists(grpo_out) or len(json.load(open(grpo_out, encoding="utf-8"))) < len(questions):
         tok = load_tokenizer()
         base = load_base()
@@ -396,7 +402,7 @@ def main():
         torch.cuda.empty_cache()
 
     # 3. Evaluate ZPPO-600
-    z600_out = os.path.join(SCRATCH, "bench250_hard_zppo600.json")
+    z600_out = str(RESULTS_DIR / "bench250_hard_zppo600.json")
     if not os.path.exists(z600_out) or len(json.load(open(z600_out, encoding="utf-8"))) < len(questions):
         tok = load_tokenizer()
         base = load_base()
@@ -407,7 +413,7 @@ def main():
         torch.cuda.empty_cache()
 
     # 4. Evaluate ZPPO-960
-    z960_out = os.path.join(SCRATCH, "bench250_hard_zppo960.json")
+    z960_out = str(RESULTS_DIR / "bench250_hard_zppo960.json")
     if not os.path.exists(z960_out) or len(json.load(open(z960_out, encoding="utf-8"))) < len(questions):
         tok = load_tokenizer()
         base = load_base()

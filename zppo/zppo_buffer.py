@@ -5,7 +5,14 @@ import random
 import re
 from typing import List, Dict, Any, Tuple
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add this script's directory (for zppo_interactive_teacher) and the repo root
+# (for core/ imports) to sys.path.
+from pathlib import Path
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SCRIPT_DIR = Path(__file__).resolve().parent
+for _p in (str(REPO_ROOT), str(SCRIPT_DIR)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 from zppo_interactive_teacher import get_teacher_trajectory
 
 def extract_core_question(prompt: str) -> str:
@@ -227,7 +234,7 @@ class PromptReplayBuffer:
                 
 if __name__ == "__main__":
     # Test buffer replenishment and BCQ construction
-    db_path = r"E:\math workspace\numina_gsm_mix_numeric.jsonl"
+    db_path = str(REPO_ROOT / "data" / "numina_gsm_mix_numeric.jsonl")
     prb = PromptReplayBuffer(db_path, buffer_size=2, start_index=0)
     prb.replenish()
     if prb.buffer:

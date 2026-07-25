@@ -22,25 +22,34 @@ os.environ["HF_ENDPOINT"]           = "https://hf-mirror.com"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
-sys.path.append(r"E:\math workspace")
-from sandbox       import execute_accumulated_code
-from evaluator_v2  import compare_math_answers, get_prm_salvage_score
+# Resolve repo root from this file's location so core/ is importable
+# regardless of the current working directory.
+from pathlib import Path
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from core.sandbox    import execute_accumulated_code
+from core.evaluator  import compare_math_answers, get_prm_salvage_score
 
 # ── Paths ────────────────────────────────────────────────────────────────────
-BASE_MODEL   = r"E:\math workspace\sft_merged"
-ZPPO_960_DIR = r"E:\math workspace\grpo_output_discounted\zppo_checkpoint\checkpoint_step960"
-ZPPO_600_DIR = r"E:\math workspace\grpo_output_discounted\zppo_checkpoint\checkpoint_step600"
-GRPO_ADAPTER = r"E:\math workspace\grpo_output_discounted\checkpoint_step1800_v3"
+# NOTE: the merged SFT base model (sft_merged, ~5GB) is NOT distributed with
+# this repository. Point SFT_BASE_MODEL at your local merged model directory.
+BASE_MODEL   = os.environ.get("SFT_BASE_MODEL", str(REPO_ROOT / "sft_merged"))
+ZPPO_960_DIR = str(REPO_ROOT / "weights" / "zppo_checkpoint_960")
+ZPPO_600_DIR = str(REPO_ROOT / "weights" / "zppo_checkpoint_600")
+GRPO_ADAPTER = str(REPO_ROOT / "weights" / "grpo_checkpoint")
 
-SCRATCH = r"C:\Users\rick john\.gemini\antigravity\brain\8ceedcb6-148d-478c-b186-c0bb494fe889\scratch"
-TEST_SET = os.path.join(SCRATCH, "numina_500_test.json")
+RESULTS_DIR = REPO_ROOT / "results"
+os.makedirs(RESULTS_DIR, exist_ok=True)
+TEST_SET = str(REPO_ROOT / "data" / "numina_500_test.json")
 
-SFT_SOURCE  = os.path.join(SCRATCH, "bench500_sft.json")
-GRPO_SOURCE = os.path.join(SCRATCH, "bench500_grpo1800.json")
+SFT_SOURCE  = str(RESULTS_DIR / "bench500_sft.json")
+GRPO_SOURCE = str(RESULTS_DIR / "bench500_grpo1800.json")
 
-ZPPO_960_OUT = os.path.join(SCRATCH, "bench500_zppo960.json")
-ZPPO_600_OUT = os.path.join(SCRATCH, "bench500_zppo600.json")
-REPORT_PATH  = r"C:\Users\rick john\.gemini\antigravity\brain\8ceedcb6-148d-478c-b186-c0bb494fe889\bench500_overfitting_report.md"
+ZPPO_960_OUT = str(RESULTS_DIR / "bench500_zppo960.json")
+ZPPO_600_OUT = str(RESULTS_DIR / "bench500_zppo600.json")
+REPORT_PATH  = str(RESULTS_DIR / "bench500_overfitting_report.md")
 
 MAX_TURNS      = 6
 MAX_NEW_TOKENS = 1024

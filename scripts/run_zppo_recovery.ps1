@@ -1,10 +1,12 @@
 # ZPPO Auto Recovery Runner Script
-# This script executes train_zppo.py in a loop. If the process crashes (e.g. due to CUDA OOM),
+# This script executes zppo/train_zppo.py in a loop. If the process crashes (e.g. due to CUDA OOM),
 # it will wait for 5 seconds and automatically restart training.
 # Since train_zppo.py is configured to load the latest saved checkpoint, it will seamlessly resume.
 
-$scriptPath = "E:\math workspace\train_zppo.py"
-$pythonPath = "E:\AI_Workspace\.venv\Scripts\python.exe"
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$scriptPath = Join-Path $repoRoot "zppo\train_zppo.py"
+# Override with the PYTHON environment variable if you need a specific interpreter.
+$pythonPath = if ($env:PYTHON) { $env:PYTHON } else { "python" }
 
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host "Starting ZPPO Training with Auto-OOM Recovery Loop" -ForegroundColor Green

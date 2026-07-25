@@ -1,0 +1,16 @@
+# Third-party dependencies, derived from actual imports in this repository.
+# Core / GRPO / ZPPO / evaluation
+torch
+transformers
+peft
+sympy
+openai
+
+# DPO & SFT pipelines (dpo/, sft/)
+trl
+datasets
+
+# Runtime requirements of 4-bit QLoRA loading (BitsAndBytesConfig) and
+# device_map="auto" model dispatch, although not imported directly.
+bitsandbytes
+accelerate

@@ -4,32 +4,25 @@
 
 $ErrorActionPreference = "Stop"
 
-$workspaceDir = "E:\math workspace"
-$scratchDir = "C:\Users\rick john\.gemini\antigravity\brain\8ceedcb6-148d-478c-b186-c0bb494fe889\scratch"
-$pythonPath = "E:\AI_Workspace\.venv\Scripts\python.exe"
+$repoRoot = Split-Path -Parent $PSScriptRoot
+# Override with the PYTHON environment variable if you need a specific interpreter.
+$pythonPath = if ($env:PYTHON) { $env:PYTHON } else { "python" }
 
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host "STAGE 1: Resuming ZPPO Training to Step 1000..." -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
 
 # Run the training loop with auto-recovery to completion
-& powershell.exe -File "$workspaceDir\run_zppo_recovery.ps1"
+& powershell.exe -File (Join-Path $PSScriptRoot "run_zppo_recovery.ps1")
 
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host "STAGE 2: Training finished! Running 500-Question Benchmark..." -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
 
-# Run the 500-question three-way benchmark
-& $pythonPath "$scratchDir\bench500_three_way.py"
-
-Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "STAGE 3: Benchmark finished! Compiling Master Report..." -ForegroundColor Green
-Write-Host "==========================================================" -ForegroundColor Green
-
-# Run the report compilation script
-& $pythonPath "$scratchDir\zppo_generate_final_analysis.py"
+# Run the 500-question comparative benchmark (auto-compiles the report into results/)
+& $pythonPath (Join-Path $repoRoot "evaluation\run_bench500.py")
 
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host "PIPELINE COMPLETED SUCCESSFULLY!" -ForegroundColor Green
-Write-Host "Master report: C:\Users\rick john\.gemini\antigravity\brain\8ceedcb6-148d-478c-b186-c0bb494fe889\final_walkthrough.md" -ForegroundColor Green
+Write-Host "Benchmark report: results\bench500_overfitting_report.md" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green

@@ -4,12 +4,16 @@ import re
 import os
 import json
 from typing import Tuple, List
-from sandbox import clean_and_dedent, execute_code
+from core.sandbox import clean_and_dedent, execute_code
 
 # Reward and Penalty weight settings
 STEP_SUCCESS_REWARD = 0.1
 STEP_FAIL_REWARD = -0.1
 MAX_CORRECTNESS_REWARD = 0.9
+
+# Repository root (parent of core/) and repo-local PRM audit log path
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PRM_AUDIT_LOG_PATH = os.path.join(_REPO_ROOT, "results", "prm_audit_log.txt")
 
 
 def clean_str(s: str) -> str:
@@ -164,11 +168,22 @@ def parse_ds_score(response_text: str) -> float:
 
 def get_prm_salvage_score(completion_text: str, target_answer: str, prompt_question: str = None) -> float:
     """
-    Queries DeepSeek V3 API to perform reasoning audit and salvage logical correct paths.
+    Queries the DeepSeek API to perform reasoning audit and salvage logical correct paths.
+
+    Requires the DEEPSEEK_API_KEY environment variable. The judge model is read from
+    DEEPSEEK_JUDGE_MODEL (default: "deepseek-chat").
+    NOTE: the original hardcoded judge model "deepseek-v4-pro" is NOT a valid DeepSeek
+    model name; PRM salvaging requires a valid model name (and a valid API key).
+    When the key is missing, a clear error is printed and the score falls back to 0.0.
     """
-    api_key = "***REMOVED***"
+    api_key = os.environ.get("DEEPSEEK_API_KEY")
+    if not api_key:
+        print("[Error] DEEPSEEK_API_KEY environment variable is not set. "
+              "PRM salvage scoring is disabled; falling back to score 0.0. "
+              "Set DEEPSEEK_API_KEY to enable LLM-assisted process scoring.")
+        return 0.0
     base_url = "https://api.deepseek.com"
-    judge_model = "deepseek-v4-pro"
+    judge_model = os.environ.get("DEEPSEEK_JUDGE_MODEL", "deepseek-chat")
     
     import openai
     client = openai.OpenAI(
@@ -205,9 +220,10 @@ def get_prm_salvage_score(completion_text: str, target_answer: str, prompt_quest
         raw_output = message.content
         reasoning = getattr(message, "reasoning_content", None)
         
-        # Log to audit file
-        audit_path = "E:\\math workspace\\grpo_output_discounted\\prm_audit_log.txt"
+        # Log to audit file (repo-local results/)
+        audit_path = PRM_AUDIT_LOG_PATH
         try:
+            os.makedirs(os.path.dirname(audit_path), exist_ok=True)
             with open(audit_path, "a", encoding="utf-8") as audit_file:
                 audit_file.write(f"=== PRM Audit Step ===\n")
                 audit_file.write(f"Question:\n{question_str}\n\n")
@@ -221,7 +237,8 @@ def get_prm_salvage_score(completion_text: str, target_answer: str, prompt_quest
         return parse_ds_score(raw_output)
     except Exception as e:
         try:
-            audit_path = "E:\\math workspace\\grpo_output_discounted\\prm_audit_log.txt"
+            audit_path = PRM_AUDIT_LOG_PATH
+            os.makedirs(os.path.dirname(audit_path), exist_ok=True)
             with open(audit_path, "a", encoding="utf-8") as audit_file:
                 audit_file.write(f"=== PRM Audit FAILURE ===\nError: {e}\n=========================\n\n")
         except:

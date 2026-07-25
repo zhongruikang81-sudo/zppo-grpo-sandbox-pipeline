@@ -11,10 +11,16 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from peft import LoraConfig, get_peft_model, PeftModel, prepare_model_for_kbit_training
 from typing import List, Dict, Any, Tuple
 
-# Add math workspace path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from sandbox import execute_accumulated_code
-from evaluator_v2 import compare_math_answers, get_prm_salvage_score
+# Resolve repo root from this file's location; add both the repo root (for
+# core/ imports) and this script's directory (for zppo_buffer).
+from pathlib import Path
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SCRIPT_DIR = Path(__file__).resolve().parent
+for _p in (str(REPO_ROOT), str(SCRIPT_DIR)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+from core.sandbox import execute_accumulated_code
+from core.evaluator import compare_math_answers, get_prm_salvage_score
 from zppo_buffer import PromptReplayBuffer
 
 # Definitions of custom LogitsProcessor and StoppingCriteria
@@ -109,10 +115,11 @@ class StopOnStepEnd(StoppingCriteria):
         return False
 
 # Training Settings
-MODEL_ID = r"E:\math workspace\sft_merged"
-DATASET_PATH = r"E:\math workspace\numina_gsm_mix_numeric.jsonl"
-OUTPUT_DIR = r"E:\math workspace\grpo_output_discounted\zppo_checkpoint"
-PRB_STATE_PATH = r"E:\math workspace\grpo_output_discounted\zppo_prb_state.json"
+# NOTE: sft_merged (~5GB) is not distributed with this repo; set SFT_BASE_MODEL.
+MODEL_ID = os.environ.get("SFT_BASE_MODEL", str(REPO_ROOT / "sft_merged"))
+DATASET_PATH = str(REPO_ROOT / "data" / "numina_gsm_mix_numeric.jsonl")
+OUTPUT_DIR = str(REPO_ROOT / "grpo_output_discounted" / "zppo_checkpoint")
+PRB_STATE_PATH = str(REPO_ROOT / "grpo_output_discounted" / "zppo_prb_state.json")
 
 BUFFER_SIZE = 8          # Mini-buffer size for local GPU training
 GRAD_THRESHOLD = 2       # Graduate question after 2 consecutive correct rollouts
@@ -249,7 +256,7 @@ def main():
     )
     
     # Determine the starting checkpoint (resume from latest ZPPO checkpoint if available)
-    GRPO_CHECKPOINT_PATH = r"E:\math workspace\grpo_output_discounted\checkpoint_step1800_v3"
+    GRPO_CHECKPOINT_PATH = str(REPO_ROOT / "grpo_output_discounted" / "checkpoint_step1800_v3")
     starting_checkpoint = GRPO_CHECKPOINT_PATH
     
     if os.path.exists(OUTPUT_DIR):
@@ -298,7 +305,7 @@ def main():
         prb.save_state(PRB_STATE_PATH)
         
     # Detailed log file path
-    ZPPO_LOG_PATH = r"E:\math workspace\grpo_output_discounted\zppo_training_log.txt"
+    ZPPO_LOG_PATH = str(REPO_ROOT / "grpo_output_discounted" / "zppo_training_log.txt")
     
     # Append mode to avoid overwriting previous steps when resuming
     log_mode = "a" if os.path.exists(ZPPO_LOG_PATH) else "w"
