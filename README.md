@@ -227,8 +227,15 @@ All figures below are reproducible with `data/audit_data_overlap.py`
    `weights/zppo_checkpoint_960/README.md` and
    `docs/zppo_alignment_comprehensive_final_report.md`.
 
-5. **GRPO importance-sampling caveat (documented for transparency).**
-   In `grpo/train_grpo.py` the PPO ratio denominator uses log-probabilities
-   from the fixed SFT base rather than the rollout policy π_θ_old refreshed per
-   iteration — a deviation from textbook PPO/GRPO. Results are reported
-   as-is; correcting this is planned follow-up work.
+5. **GRPO importance-sampling ratio — FIXED (2026-07-25).**
+   Previously, the PPO ratio denominator in the GRPO trainers used
+   log-probabilities from the fixed SFT base instead of the rollout policy
+   π_θ_old. This has been corrected in all three GRPO entry points
+   (`grpo/train_grpo.py`, `grpo/train_grpo_interactive_v2.py`,
+   `grpo/auto_recovery.py`): the ratio is now `exp(logp_active − logp_old)`
+   with π_θ_old captured (adapter enabled) before each weight update, while the
+   SFT base is used only for the KL-to-reference regularizer, matching textbook
+   PPO/GRPO. `zppo/train_zppo.py` was already correct (it stores
+   `token_lp_old` at rollout time). **Caveat:** the published checkpoints under
+   `weights/` and the numbers in `docs/` were produced under the old objective;
+   the fix applies to future training runs.

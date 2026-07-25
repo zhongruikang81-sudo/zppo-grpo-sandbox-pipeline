@@ -461,7 +461,23 @@ def main():
                 shift_input_ids = input_ids_tensor[0, 1:]
                 loss_mask = (shift_labels != -100)
                 
-                # Reference model forward pass (LoRA disabled)
+                # Rollout-time (old) policy forward pass (LoRA ENABLED): weights are
+                # unchanged since rollout (optimizer.step happens after the G loop),
+                # so this is the true pi_theta_old for the PPO importance ratio.
+                with torch.no_grad():
+                    old_outputs = model(input_ids_tensor)
+                    old_logits = old_outputs.logits
+                    shift_old_logits = old_logits[0, :-1, :]
+                    old_log_probs = torch.log_softmax(shift_old_logits, dim=-1)
+                    per_token_old_log_probs = old_log_probs.gather(dim=-1, index=shift_input_ids.unsqueeze(-1)).squeeze(-1)
+                    per_token_old_log_probs = per_token_old_log_probs * loss_mask
+
+                # Explicitly free old-policy intermediate tensors
+                del old_outputs, old_logits, shift_old_logits, old_log_probs
+                torch.cuda.empty_cache()
+
+                # Reference model forward pass (LoRA disabled) — used ONLY for the
+                # KL-to-reference regularizer, NOT as the ratio denominator.
                 with torch.no_grad():
                     with model.disable_adapter():
                         ref_outputs = model(input_ids_tensor)
@@ -487,16 +503,19 @@ def main():
                 
                 # Mask out non-loss elements
                 active_log_probs = per_token_log_probs[loss_mask]
+                active_old_log_probs = per_token_old_log_probs[loss_mask]
                 active_ref_log_probs = per_token_ref_log_probs[loss_mask]
                 
                 if len(active_log_probs) > 0:
-                    ratios = torch.exp(active_log_probs - active_ref_log_probs)
+                    # PPO/GRPO importance ratio: pi_theta / pi_theta_old (NOT vs SFT base)
+                    ratios = torch.exp(active_log_probs - active_old_log_probs)
                     adv = advantages[i]
                     
                     surr1 = ratios * adv
                     surr2 = torch.clamp(ratios, 1.0 - clip_eps, 1.0 + clip_eps) * adv
                     clip_loss = -torch.min(surr1, surr2)
                     
+                    # KL-to-reference regularizer (k3 estimator, vs SFT base) — unchanged
                     kl = torch.exp(active_ref_log_probs - active_log_probs) - (active_ref_log_probs - active_log_probs) - 1.0
                     
                     total_token_loss = clip_loss + kl_coef * kl
@@ -515,7 +534,7 @@ def main():
                 # Free candidate tensors and clear cache between candidates
                 del input_ids_tensor, labels_tensor
                 try:
-                    del outputs, logits, shift_logits, log_probs, per_token_log_probs, active_log_probs, active_ref_log_probs, per_token_ref_log_probs
+                    del outputs, logits, shift_logits, log_probs, per_token_log_probs, active_log_probs, active_old_log_probs, active_ref_log_probs, per_token_old_log_probs, per_token_ref_log_probs
                 except NameError:
                     pass
                 torch.cuda.empty_cache()
